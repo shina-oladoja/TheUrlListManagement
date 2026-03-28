@@ -1,0 +1,188 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import ListHeader from '../../components/ListHeader';
+import AddItemForm from '../../components/AddItemForm';
+import ListItemCard from '../../components/ListItemCard';
+
+const { id } = Astro.params;
+---
+
+<Layout title="Edit List - The Urlist">
+	<main class="min-h-screen bg-gray-100 py-8">
+		<div class="max-w-4xl mx-auto px-4">
+			<div id="list-container"></div>
+		</div>
+	</main>
+
+	<script define:vars={{ id }}>
+		async function loadList() {
+			try {
+				const response = await fetch(`/api/lists/${id}`);
+				const data = await response.json();
+				
+				if (!data.success) {
+					document.getElementById('list-container').innerHTML = '<div class="text-red-600">Failed to load list</div>';
+					return;
+				}
+
+				const { list, items } = data;
+				const container = document.getElementById('list-container');
+				
+				container.innerHTML = `
+					<div class="mb-8">
+						<div class="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-6 rounded-lg shadow-lg mb-8">
+							<div class="flex justify-between items-start">
+								<div>
+									<h1 class="text-4xl font-bold mb-2">${list.title}</h1>
+									${list.description ? `<p class="text-indigo-100 text-lg">${list.description}</p>` : ''}
+								</div>
+								<div class="flex gap-2">
+									${!list.is_published ? `<button onclick="publishList(${list.id})" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-medium">Publish</button>` : `<span class="bg-green-600 text-white py-2 px-4 rounded-lg font-medium">✓ Published</span>`}
+									<button onclick="deleteList(${list.id})" class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg font-medium">Delete List</button>
+								</div>
+							</div>
+
+							${list.is_published ? `
+								<div class="bg-indigo-700 p-4 rounded-lg mt-4">
+									<p class="text-sm text-indigo-100 mb-2">Share this list:</p>
+									<div class="flex items-center gap-2">
+										<code class="flex-1 bg-indigo-900 p-2 rounded text-sm break-all">${window.location.origin}/${list.custom_url}</code>
+										<button onclick="copyShareUrl('${window.location.origin}/${list.custom_url}')" class="bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-4 rounded font-medium">Copy</button>
+									</div>
+								</div>
+							` : ''}
+						</div>
+
+						<div class="bg-white p-6 rounded-lg shadow-md mb-8">
+							<h2 class="text-2xl font-bold text-gray-900 mb-4">Add URL</h2>
+							<form onsubmit="addItem(event, ${list.id})" class="space-y-3">
+								<div>
+									<label class="block text-sm font-medium text-gray-700 mb-1">URL *</label>
+									<input type="text" id="url-input" placeholder="https://example.com" class="w-full px-3 py-2 border border-gray-300 rounded-md" required />
+								</div>
+								<div>
+									<label class="block text-sm font-medium text-gray-700 mb-1">Title (optional)</label>
+									<input type="text" id="title-input" placeholder="What is this link about?" class="w-full px-3 py-2 border border-gray-300 rounded-md" />
+								</div>
+								<button type="submit" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 font-medium">+ Add URL</button>
+							</form>
+						</div>
+
+						<div id="items-container">
+							<h2 class="text-2xl font-bold text-gray-900 mb-4">URLs in this list</h2>
+							${items.length === 0 ? '<p class="text-gray-600">No items yet. Add one above!</p>' : ''}
+							<div class="space-y-3">
+								${items.map(item => `
+									<div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-indigo-500">
+										<div class="flex gap-3 justify-between">
+											<div>
+												${item.title ? `<p class="text-sm font-medium text-gray-700 mb-1">${item.title}</p>` : ''}
+												<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800 break-all text-sm">${item.url}</a>
+												<p class="text-xs text-gray-500 mt-2">Added ${new Date(item.created_at).toLocaleDateString()}</p>
+											</div>
+											<div class="flex gap-2 whitespace-nowrap">
+												<button onclick="editItem(${item.id}, '${item.url.replace(/'/g, "\\'")}', '${(item.title || '').replace(/'/g, "\\'")}')" class="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
+												<button onclick="deleteItem(${item.id})" class="text-red-600 hover:text-red-800 text-sm">Delete</button>
+											</div>
+										</div>
+									</div>
+								`).join('')}
+							</div>
+						</div>
+					</div>
+				`;
+			} catch (error) {
+				console.error('Error loading list:', error);
+				document.getElementById('list-container').innerHTML = '<div class="text-red-600">Error loading list</div>';
+			}
+		}
+
+		async function addItem(e, listId) {
+			e.preventDefault();
+			const urlInput = document.getElementById('url-input');
+			const titleInput = document.getElementById('title-input');
+
+			try {
+				const response = await fetch(`/api/lists/${listId}/items`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ url: urlInput.value, title: titleInput.value })
+				});
+
+				if (response.ok) {
+					urlInput.value = '';
+					titleInput.value = '';
+					loadList();
+				} else {
+					alert('Failed to add item');
+				}
+			} catch (error) {
+				console.error('Error adding item:', error);
+				alert('Error adding item');
+			}
+		}
+
+		async function deleteItem(itemId) {
+			if (!confirm('Delete this item?')) return;
+			try {
+				const response = await fetch(`/api/lists/${id}/items/${itemId}`, { method: 'DELETE' });
+				if (response.ok) {
+					loadList();
+				}
+			} catch (error) {
+				console.error('Error deleting item:', error);
+				alert('Error deleting item');
+			}
+		}
+
+		async function publishList(listId) {
+			try {
+				const response = await fetch(`/api/lists/${listId}`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ action: 'publish' })
+				});
+
+				if (response.ok) {
+					loadList();
+				}
+			} catch (error) {
+				console.error('Error publishing:', error);
+			}
+		}
+
+		async function deleteList(listId) {
+			if (!confirm('Delete this entire list? This cannot be undone.')) return;
+			try {
+				const response = await fetch(`/api/lists/${listId}`, { method: 'DELETE' });
+				if (response.ok) {
+					window.location.href = '/';
+				}
+			} catch (error) {
+				console.error('Error deleting list:', error);
+				alert('Error deleting list');
+			}
+		}
+
+		function copyShareUrl(url) {
+			navigator.clipboard.writeText(url);
+			alert('Link copied to clipboard!');
+		}
+
+		function editItem(itemId, url, title) {
+			const newUrl = prompt('Enter new URL:', url);
+			if (newUrl === null) return;
+			const newTitle = prompt('Enter new title:', title);
+			
+			fetch(`/api/lists/${id}/items/${itemId}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ url: newUrl, title: newTitle })
+			}).then(() => loadList());
+		}
+
+		loadList();
+	</script>
+</Layout>
