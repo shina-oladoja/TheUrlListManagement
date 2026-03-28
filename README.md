@@ -44,3 +44,11 @@ All commands are run from the root of the project, from a terminal:
 ## 👀 Want to learn more?
 
 Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+
+## VS Code Agent Mode Just Changed Everything
+# Visual Studio Code
+
+This is a project tutorial which I used to learn agent in vscode.
+
+The URL to the full video curtsey of VS Code.
+https://www.youtube.com/watch?v=dutyOc_cAEU
