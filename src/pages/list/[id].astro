@@ -17,6 +17,15 @@ const { id } = Astro.params;
 	</main>
 
 	<script define:vars={{ id }}>
+		// Make functions globally accessible for onclick handlers
+		window.loadList = loadList;
+		window.addItem = addItem;
+		window.deleteItem = deleteItem;
+		window.publishList = publishList;
+		window.deleteList = deleteList;
+		window.copyShareUrl = copyShareUrl;
+		window.editItem = editItem;
+
 		async function loadList() {
 			try {
 				const response = await fetch(`/api/lists/${id}`);
@@ -129,7 +138,7 @@ const { id } = Astro.params;
 			try {
 				const response = await fetch(`/api/lists/${id}/items/${itemId}`, { method: 'DELETE' });
 				if (response.ok) {
-					loadList();
+					window.loadList();
 				}
 			} catch (error) {
 				console.error('Error deleting item:', error);
@@ -146,7 +155,7 @@ const { id } = Astro.params;
 				});
 
 				if (response.ok) {
-					loadList();
+					window.loadList();
 				}
 			} catch (error) {
 				console.error('Error publishing:', error);
@@ -180,9 +189,9 @@ const { id } = Astro.params;
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ url: newUrl, title: newTitle })
-			}).then(() => loadList());
+			}).then(() => window.loadList());
 		}
 
-		loadList();
+		window.loadList();
 	</script>
 </Layout>
