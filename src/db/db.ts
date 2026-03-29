@@ -22,7 +22,7 @@ console.log('Database config:', {
 
 const pool = new Pool(databaseConfig);
 
-pool.on('error', (err) => {
+pool.on('error', (err: Error) => {
   console.error('Unexpected error on idle client', err);
 });
 
@@ -30,7 +30,7 @@ pool.on('connect', () => {
   console.log('Database connected successfully');
 });
 
-export async function query(text, params = []) {
+export async function query(text: string, params: (string | number)[] = []) {
   const start = Date.now();
   try {
     const res = await pool.query(text, params);
@@ -59,7 +59,7 @@ export async function createList(title: string, description: string, customUrl: 
     return res.rows[0];
   } catch (error) {
     console.error('Error creating list:', error);
-    throw new Error(`Failed to create list: ${error.message}`);
+    throw new Error(`Failed to create list: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -72,7 +72,7 @@ export async function getListByCustomUrl(customUrl: string) {
     return res.rows[0];
   } catch (error) {
     console.error('Error fetching list by custom URL:', error);
-    throw new Error(`Failed to fetch list: ${error.message}`);
+    throw new Error(`Failed to fetch list: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -80,12 +80,12 @@ export async function getListById(id: number | string) {
   try {
     const res = await query(
       'SELECT * FROM url_lists WHERE id = $1',
-      [id]
+      [String(id)]
     );
     return res.rows[0];
   } catch (error) {
     console.error('Error fetching list by ID:', error);
-    throw new Error(`Failed to fetch list: ${error.message}`);
+    throw new Error(`Failed to fetch list: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -93,21 +93,21 @@ export async function updateList(id: number | string, title: string, description
   try {
     const res = await query(
       'UPDATE url_lists SET title = $1, description = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *',
-      [title, description, id]
+      [title, description, String(id)]
     );
     return res.rows[0];
   } catch (error) {
     console.error('Error updating list:', error);
-    throw new Error(`Failed to update list: ${error.message}`);
+    throw new Error(`Failed to update list: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
 export async function deleteList(id: number | string) {
   try {
-    await query('DELETE FROM url_lists WHERE id = $1', [id]);
+    await query('DELETE FROM url_lists WHERE id = $1', [String(id)]);
   } catch (error) {
     console.error('Error deleting list:', error);
-    throw new Error(`Failed to delete list: ${error.message}`);
+    throw new Error(`Failed to delete list: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -115,12 +115,12 @@ export async function publishList(id: number | string) {
   try {
     const res = await query(
       'UPDATE url_lists SET is_published = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *',
-      [id]
+      [String(id)]
     );
     return res.rows[0];
   } catch (error) {
     console.error('Error publishing list:', error);
-    throw new Error(`Failed to publish list: ${error.message}`);
+    throw new Error(`Failed to publish list: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -133,7 +133,7 @@ export async function getAllLists() {
     return res.rows;
   } catch (error) {
     console.error('Error fetching all lists:', error);
-    throw new Error(`Failed to fetch lists: ${error.message}`);
+    throw new Error(`Failed to fetch lists: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -143,12 +143,12 @@ export async function addItemToList(listId: number | string, url: string, title:
   try {
     const res = await query(
       'INSERT INTO list_items (list_id, url, title, display_order) VALUES ($1, $2, $3, $4) RETURNING *',
-      [listId, url, title, displayOrder]
+      [String(listId), url, title, String(displayOrder)]
     );
     return res.rows[0];
   } catch (error) {
     console.error('Error adding item:', error);
-    throw new Error(`Failed to add item: ${error.message}`);
+    throw new Error(`Failed to add item: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -156,12 +156,12 @@ export async function getListItems(listId: number | string) {
   try {
     const res = await query(
       'SELECT * FROM list_items WHERE list_id = $1 ORDER BY display_order ASC, created_at ASC',
-      [listId]
+      [String(listId)]
     );
     return res.rows;
   } catch (error) {
     console.error('Error fetching items:', error);
-    throw new Error(`Failed to fetch items: ${error.message}`);
+    throw new Error(`Failed to fetch items: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -169,21 +169,21 @@ export async function updateListItem(itemId: number | string, url: string, title
   try {
     const res = await query(
       'UPDATE list_items SET url = $1, title = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *',
-      [url, title, itemId]
+      [url, title, String(itemId)]
     );
     return res.rows[0];
   } catch (error) {
     console.error('Error updating item:', error);
-    throw new Error(`Failed to update item: ${error.message}`);
+    throw new Error(`Failed to update item: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
 export async function deleteListItem(itemId: number | string) {
   try {
-    await query('DELETE FROM list_items WHERE id = $1', [itemId]);
+    await query('DELETE FROM list_items WHERE id = $1', [String(itemId)]);
   } catch (error) {
     console.error('Error deleting item:', error);
-    throw new Error(`Failed to delete item: ${error.message}`);
+    throw new Error(`Failed to delete item: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -194,14 +194,14 @@ export async function reorderListItems(listId: number | string, itemIds: (number
     for (let i = 0; i < itemIds.length; i++) {
       await client.query(
         'UPDATE list_items SET display_order = $1 WHERE id = $2',
-        [i, itemIds[i]]
+        [String(i), String(itemIds[i])]
       );
     }
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Error reordering items:', err);
-    throw new Error(`Failed to reorder items: ${err.message}`);
+    throw new Error(`Failed to reorder items: ${err instanceof Error ? err.message : 'Unknown error'}`);
   } finally {
     client.release();
   }
